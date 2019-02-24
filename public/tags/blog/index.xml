@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Blog on Call me how</title>
+    <link>https://howchanghong.github.io/tags/blog/</link>
+    <description>Recent content in Blog on Call me how</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 31 Dec 2017 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="https://howchanghong.github.io/tags/blog/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>50 Learnings in 2017</title>
+      <link>https://howchanghong.github.io/posts/50-learnings-in-2017/</link>
+      <pubDate>Sun, 31 Dec 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://howchanghong.github.io/posts/50-learnings-in-2017/</guid>
+      <description>Work has been life these days and the bustling pace can be overwhelming without giving myself a time to reflect. Seeing my brother’s note to do this particular challenge, I’m inspired to do personal reflections myself too. In addition, after making a bet with Yunhan, I shall attempt to make a new experience every week. Thus, the objectives of this challenge are: Reflect on events that happened this week and, How I felt, what influenced my decisions and what can be done better.</description>
+    </item>
+    
+  </channel>
+</rss>
