@@ -12,6 +12,15 @@
     
     
     <item>
+      <title>New Blog in 2019</title>
+      <link>https://howchanghong.github.io/posts/new-blog/</link>
+      <pubDate>Sun, 24 Feb 2019 00:00:00 +0000</pubDate>
+      
+      <guid>https://howchanghong.github.io/posts/new-blog/</guid>
+      <description> Motivation for Blog  Start a new project in 2019 Learn how to setup a static website (using Hugo and Github) Platform to consolidate my thoughts  </description>
+    </item>
+    
+    <item>
       <title>50 Learnings in 2017</title>
       <link>https://howchanghong.github.io/posts/50-learnings-in-2017/</link>
       <pubDate>Sun, 31 Dec 2017 00:00:00 +0000</pubDate>

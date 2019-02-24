@@ -6,10 +6,19 @@
     <description>Recent content on Call me how</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 17 Feb 2019 20:31:27 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 24 Feb 2019 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="https://howchanghong.github.io/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>New Blog in 2019</title>
+      <link>https://howchanghong.github.io/posts/new-blog/</link>
+      <pubDate>Sun, 24 Feb 2019 00:00:00 +0000</pubDate>
+      
+      <guid>https://howchanghong.github.io/posts/new-blog/</guid>
+      <description> Motivation for Blog  Start a new project in 2019 Learn how to setup a static website (using Hugo and Github) Platform to consolidate my thoughts  </description>
+    </item>
     
     <item>
       <title>About</title>
