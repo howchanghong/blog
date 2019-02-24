@@ -2,11 +2,8 @@
 
 echo -e "\033[0;32mCommit and Push Source Code to GitHub...\033[0m"
 
-# Delete public folder
-rm public -r -fo
-
 # Add changes to git.
-git add -A
+git add public
 
 # Commit changes.
 msg="rebuilding site `date`"
