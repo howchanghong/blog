@@ -5,8 +5,10 @@
         <title>{{ .Title }}</title>
     </head>
     <body>
+        
         <div class="section" id="splash">
-
+            <img sizes="128x128" src="{{ .Site.BaseURL }}/{{ .Site.Params.biglogo }}" alt="Ch logo" /> 
+            
             {{ if .Site.Params.mainMenu }}
                 {{ range .Site.Params.mainMenu }}
                     <div class="big-link">
