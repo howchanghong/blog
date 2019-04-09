@@ -42,5 +42,9 @@ publishDir = "howchanghong.github.io"
     text = "My Senses"
 
 [[params.mainMenu]]
+    link = "/projects"
+    text = "My Works"
+
+[[params.mainMenu]]
     link = "/about"
     text = "Me"
