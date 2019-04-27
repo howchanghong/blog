@@ -1,7 +1,9 @@
 ---
 title: "Study Skills"
 date: 2019-04-27T21:24:54+08:00
+showDate: true
 draft: false
+tags: ["blog", "Notes"]
 ---
 
 # Study Skills
