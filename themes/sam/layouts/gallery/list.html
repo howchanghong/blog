@@ -14,7 +14,7 @@
 
         {{ $files := readDir $folder }}
 
-        {{ $previewSubdirectory := .Site.Params.smallImagesSubfolder | default "small/"}}
+        {{ $previewSubdirectory := .Site.Params.smallImagesSubfolder | default ""}} 
         {{ $previewImagesEnabled := .Site.Params.smallPreviewImages }}
 
         {{ range shuffle $files }}
