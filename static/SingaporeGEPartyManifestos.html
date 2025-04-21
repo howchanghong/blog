@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Manifesto Mindmap (Full Screen with Panel)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Make body and html fill the viewport and remove margins */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrollbars on body */
+            background-color: #f3f4f6; /* bg-gray-100 */
+            font-family: sans-serif;
+        }
+
+        /* Main flex container */
+        #main-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* SVG container */
+        #mindmap-container {
+            flex-grow: 1; /* Takes remaining space */
+            height: 100%;
+            position: relative;
+            transition: width 0.3s ease-in-out; /* Smooth transition */
+        }
+
+        /* Details Panel */
+        #details-panel {
+            width: 25%; /* Initial width */
+            min-width: 250px; /* Minimum width */
+            max-width: 400px; /* Maximum width */
+            height: 100%;
+            background-color: white;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            padding: 1rem;
+            overflow-y: auto; /* Scroll if content overflows */
+            transition: width 0.3s ease-in-out, min-width 0.3s ease-in-out, padding 0.3s ease-in-out; /* Smooth transition */
+            position: relative; /* For positioning the toggle button */
+            flex-shrink: 0; /* Prevent panel from shrinking */
+        }
+
+        #details-panel.hidden {
+            width: 0;
+            min-width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* Ensure SVG takes full space of its container */
+        svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom styles for SVG elements */
+        .node circle {
+            cursor: pointer;
+            stroke-width: 1.5px;
+        }
+        /* Style for party logos */
+        .node image {
+             cursor: pointer;
+             border-radius: 50%; /* Make placeholder look circular */
+        }
+
+        .node text {
+            font: 10px sans-serif;
+            pointer-events: none; /* Allow clicks to pass through text to circle/image */
+            fill: #374151; /* text-gray-700 */
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+
+        /* Style for loading message */
+        #loading {
+            position: absolute; /* Center within the container */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+            color: #666;
+            z-index: 10; /* Ensure it's above the SVG initially */
+        }
+
+        /* Toggle Button */
+        #toggle-panel-btn {
+            position: absolute;
+            top: 10px;
+            left: -40px; /* Position just outside the panel */
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 5px 0 0 5px; /* Rounded left corners */
+            cursor: pointer;
+            z-index: 20;
+            font-size: 14px;
+            line-height: 1;
+            box-shadow: -2px 2px 4px rgba(0,0,0,0.2);
+            transition: background-color 0.2s;
+        }
+         #toggle-panel-btn:hover {
+             background-color: #2563eb; /* bg-blue-600 */
+         }
+         #details-panel.hidden #toggle-panel-btn {
+             left: 0px; /* Move button to edge when panel is hidden */
+             border-radius: 0 5px 5px 0; /* Rounded right corners */
+         }
+
+
+        /* Color classes for parties */
+        /* Used for strokes/fills of non-party nodes under a party */
+        .fill-pap { fill: #0d0f70; } .stroke-pap { stroke: #0d0f70; } .text-pap-600 { color: #0d0f70; }
+        .fill-ppp { fill: #0e6112; } .stroke-ppp { stroke: #0e6112; } .text-ppp-600 { color: #0e6112; }
+        .fill-psp { fill: #F97316; } .stroke-psp { stroke: #F97316; } .text-psp-600 { color: #EA580C; }
+        .fill-rdu { fill: #EC4899; } .stroke-rdu { stroke: #EC4899; } .text-rdu-600 { color: #DB2777; }
+        .fill-sdp { fill: #8B5CF6; } .stroke-sdp { stroke: #8B5CF6; } .text-sdp-600 { color: #7C3AED; }
+        .fill-wp { fill: #b91010; } .stroke-wp { stroke: #b91010; } .text-wp-600 { color: #b91010; }
+        .fill-default { fill: #6B7280; } .stroke-default { stroke: #6B7280; } .text-gray-700 { color: #374151; }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <div id="mindmap-container">
+            <div id="loading">Loading Mindmap...</div>
+            <svg id="mindmap-svg"></svg>
+        </div>
+
+        <div id="details-panel">
+             <button id="toggle-panel-btn" title="Toggle Details Panel">&lt;</button>
+            <h2 class="text-xl font-semibold text-gray-700 mb-3 border-b pb-2">Details</h2>
+            <div id="details-content">
+                <p class="text-gray-500">Click on a node in the mindmap to see details here.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Manifesto Data (Parsed from provided text) ---
+        // Added logo property with placeholder URLs
+        const manifestoData = {
+            name: "Manifestos",
+            children: [
+                {
+                    name: "PAP", slogan: "Securing a Brighter Future for You", partyClass: "pap", logo: "https://upload.wikimedia.org/wikipedia/en/2/28/People%27s_Action_Party_of_Singapore_logo.svg",
+                    children: [
+                        { name: "A Dynamic Economy", focus: "Grow a dynamic economy that generates jobs and opportunities for all.", recommendations: ["Provide more support for PMETs...", "Strengthen safeguards for fair employment...", "Keep Singapore a reliable hub...", "Invest in infrastructure...", "Adopt new technologies (AI)...", "Secure clean energy (nuclear)...", "Support SMEs...", "Ease cost pressures...", "Enable productivity upgrades...", "Easier access to manpower/capital...", "Help companies expand..."] },
+                        { name: "More Pathways", focus: "Continue to reform and reshape education so that we can all become the best versions of ourselves.", recommendations: ["Broaden definitions of success.", "Customise education.", "Invest in teachers.", "Partner parents/industry.", "Build 4 new SPED schools.", "More early intervention centres.", "Extend Development Support.", "Empower reskilling (SkillsFuture).", "Help companies redesign jobs.", "Support for jobseekers."] },
+                        { name: "For Every Singaporean", focus: "Actively shielded Singaporeans from rising cost pressures. Uplift and empower Singaporeans who need more support. Build a more inclusive Singapore for Persons with Disabilities (PwDs).", recommendations: ["CDC vouchers, cash payouts, rebates.", "Expanded Parental Leave, lower pre-school fees.", "Reinforce social safety nets (ComCare, Silver Support).", "Enhance Workfare, extend Progressive Wages.", "ComLink+ for lower-income families.", "Support for disadvantaged children.", "Strengthen post-18 transition for PwDs.", "Boost employment for PwDs.", "Subsidise adult disability services.", "Pilot community living models for PwDs."] },
+                        { name: "For Seniors", focus: "Seniors should enjoy their golden years with financial security and peace of mind.", recommendations: ["Raise re-employment age.", "Increase senior CPF rates.", "Co-fund wages for hiring seniors.", "Review/enhance CPF system.", "Matching grants for MediSave top-ups.", "More Active Ageing Centres.", "Increase subsidies for long-term care.", "New models for ageing in place.", "Strengthen support for caregivers."] },
+                        { name: "More Affordable Healthcare", focus: "Want Singaporeans to enjoy good physical and mental health throughout life. Continue to make healthcare more affordable. Empower Singaporeans to stay healthy through preventive care and healthier lifestyles. Ramp up healthcare capacity and shorten wait times. Boost support for mental health.", recommendations: ["Grow Well SG (children).", "Healthier SG (adults).", "Age Well SG (seniors).", "Innovations (Queenstown Health District).", "Add 13,600 beds.", "Redevelop Alexandra Hospital, new Eastern General Hospital.", "Grow healthcare workforce.", "National Mental Health Office.", "More access to mental health services.", "Capability building for mental health."] },
+                        { name: "More Affordable Public Housing", focus: "Every Singaporean will always have the opportunity to own a high quality, affordable home.", recommendations: ["Build 50,000+ new flats.", "Increase Shorter Waiting Time flats.", "Explore options for higher-income/singles.", "Act decisively for stable market.", "Plan for HDB rejuvenation (VERS).", "New HDB classification (Standard, Plus, Prime).", "Develop new estates (Kallang, Bayshore, Mount Pleasant)."] },
+                        { name: "A Vibrant City", focus: "Make green living a way of life. Continue to reduce carbon emissions to reach net-zero by 2050. Integrate flood resilience, land reclamation and redevelopment to protect Singapore from rising sea levels, while creating beautiful waterfront living. Make commuting faster, greener and more seamless.", recommendations: ["Expand green spaces (parks, connectors, gardens).", "Expand blue spaces (marine park).", "Integrate flood resilience/redevelopment (Long Island, GSW).", "Build new MRT lines (JRL, CRL), extend existing.", "Improve bus services."] },
+                        { name: "Arts, Culture And Sports", focus: "Take sports, arts and culture to new heights – making them more accessible and enjoyable for all. Encourage active living and bring sports closer to Singaporeans. Support and grow Singapore’s arts and culture scene.", recommendations: ["Develop Kallang Alive.", "Build new sports facilities.", "Upgrade existing facilities.", "Expand SG Culture Pass.", "Early arts exposure.", "More arts apprenticeships/scholarships.", "More arts spaces/support.", "New Museum of Design."] },
+                        { name: "A More United Team", focus: "Unity is Singapore’s greatest strength. Strengthen our cohesiveness. Build a society where there is respect for all, everyone is valued, no one is left behind. Refresh our social compact and do more with, and for, each other.", recommendations: ["Build Singaporean identity.", "Uphold multi-racial/religious society.", "Enhance integration.", "Keep peace and harmony.", "Nurture giving culture.", "Connect donors/volunteers.", "Increase civic participation.", "Strengthen people-government partnership."] }
+                    ]
+                },
+                {
+                    name: "PPP", slogan: "Make Singapore Home Again", partyClass: "ppp", logo: "https://upload.wikimedia.org/wikipedia/en/6/65/People%27s_Power_Party_%28Singapore%29.png",
+                    children: [
+                        { name: "Population Policy", focus: "Addressing Low Total Fertility Rate (TFR) and the impact of aggressive immigration. Concerns over national identity dilution and quality of life.", recommendations: ["Family Kickstart Housing.", "Govt Family Assurance Scheme.", "Monthly allowance for families.", "Protection of children (traditional marriage).", "Constitutional definition of marriage.", "Review Family Laws (adultery).", "Heavy subsidies for first child care.", "Automatic citizenship for children.", "90% IVF subsidy.", "Review FTAs (CECA).", "Singaporean HR heads.", "'Singaporean First' in labour law.", "MNC hiring quotas.", "Rethink foreign labour quota.", "Tighten immigration (12yr stay).", "Prioritize foreign spouses/children for citizenship.", "Voting rights delay for naturalised citizens.", "Cap population at 6.5m.", "Levy on foreign vehicle buyers."] },
+                        { name: "Good Governance", focus: "Ensuring Integrity, Meritocracy, Accountability, Proper Separation of Powers, Management of Conflict of Interests, and Transparency. Addressing lack of accountability and excessive powers.", recommendations: ["Robust debates/checks & balances.", "Transfer key institutions to President's Office.", "Independent COI for conflicts.", "Ombudsman/Equal Opportunities Commissions.", "Special commission for mega projects.", "Ministry performance evaluation.", "Scrutinize mega projects.", "Protect freedoms/rights.", "Amend ISA.", "Review police/ministerial powers.", "Object to POFMA, review Racial Harmony Act.", "Open debate on mandatory medical treatments.", "Debate/consultation on nuclear power.", "Proportional Representation.", "Debate/consultation on Population Policy."] },
+                        { name: "Retirement Inadequacy", focus: "Addressing inadequate CPF payouts, rising healthcare costs, and the burden of GST on retirees and the general population.", recommendations: ["CPF only for 2nd property.", "Adjust CPF rates (20% employer, 5% employee).", "Invest CPF for higher returns.", "Expand MediShield Life to foreign labour.", "Review MediShield payout.", "Lower MediShield deductibles.", "Increase MediSave limits.", "Raise Hospital Bed Ratio.", "GST exemption for essentials.", "Remove Carbon Tax."] },
+                        { name: "Housing & CPF", focus: "Addressing the high cost of housing and the impact of using CPF for primary housing on retirement savings.", recommendations: ["CPF for 2nd property only.", "Reduce employee CPF contribution.", "Family Kickstart Housing Programme (affordable 2.5-room).", "Build HDB in advance.", "Priority for young couples in SBF.", "Enhanced priority for young/NSmen.", "Redefine HDB affordability reference.", "Capital gains tax for foreign property sellers.", "ABSD/capital gains tax from 3rd property."] }
+                    ]
+                },
+                {
+                    name: "PSP", slogan: "Progress for All", partyClass: "psp", logo: "https://upload.wikimedia.org/wikipedia/en/7/77/Progress_Singapore_Party_logo.png",
+                    children: [
+                        { name: "Cost of Living", focus: "Addressing rising costs of living and making Singapore more affordable for Singaporeans.", recommendations: ["Reduce GST to 7%.", "Exempt essentials from GST.", "Defer HDB land cost.", "Review land sales accounting.", "FTIC guidelines on commercial rent.", "Set hawker rent ($500 or 3% GTO).", "Phase out SEHCs.", "Govt-funded food discounts.", "Govt pays MediShield/CareShield premiums.", "HealthierMother cash gift ($3k).", "Lower healthcare costs (central drug procurement)."] },
+                        { name: "Housing", focus: "Providing affordable housing for Singaporeans and addressing concerns about lease decay.", recommendations: ["Affordable Homes Scheme (AHS) without land cost.", "Singles buy flats at 28.", "Build more flats based on demand.", "Millennial Apartments Scheme (rental)."] },
+                        { name: "Jobs and Wages", focus: "Recalibrating foreign manpower policies, improving job quality, raising wages, and enhancing work-life balance for Singaporeans.", recommendations: ["Minimum Living Wage ($2,250).", "Strengthen FCF.", "EP quota per company.", "EP levy ($1,200).", "Increase EP salary ($10k).", "Limit single nationality concentration.", "Exempt retrenched from non-compete.", "Statutory retrenchment benefits.", "Equalise parental leave (15 weeks).", "Incentives for family-friendly employers.", "Incentives for job-sharing.", "Reduce work week (40 hrs).", "Increase annual leave (14 days).", "Increase public holidays (14).", "Implement 'right to disconnect'."] },
+                        { name: "Social Safety Net", focus: "Strengthening the social safety net to ensure no Singaporean is left behind.", recommendations: ["Simplify support schemes.", "Caregiver allowance ($1,250).", "Double Silver Support.", "Utilise Pioneer/Merdeka Gen Funds.", "CPF Lifetime Retirement Investment Scheme (LRIS).", "Expand MediSave use (outpatient, dental, maternity, egg freezing).", "Support for fertility issues (75% co-funding, unlimited cycles).", "Strengthen mental health support (MediSave, regulation, more professionals)."] },
+                        { name: "Education", focus: "Improving the education system to be more holistic, provide multiple pathways to success, and reduce stress.", recommendations: ["Optional PSLE (10-year through-train).", "Allow range of school sizes.", "Overhaul assessments.", "Reduce class sizes.", "Enhance student/teacher mental health.", "Reduce grants/scholarships for foreign students.", "Review university places for Singaporeans.", "Expand non-academic pathways (WSQ)."] },
+                        { name: "Governance", focus: "Strengthening governmental accountability, transparency, and democratic institutions.", recommendations: ["Reform ministerial salaries.", "Public declaration of MP assets.", "Increase SWF accountability.", "Freedom of Information Act (FOIA).", "Automatic declassification of documents.", "Reform media regime.", "Reform POFMA.", "Abolish GRCs.", "Reform electoral boundaries.", "Depoliticise PA.", "Mandate EIAs.", "Lower voting age to 18.", "Parliament Research Service (PRS).", "Permanent bipartisan standing committees.", "Non-partisan Speaker."] }
+                    ]
+                },
+                {
+                    name: "RDU", slogan: "First-Class Citizens, Fairer Singapore", partyClass: "rdu", logo: "https://upload.wikimedia.org/wikipedia/en/c/c7/Red_Dot_United.svg",
+                    children: [
+                        { name: "A New Social Contract", focus: "Rebuilding the social contract... Centering on H.E.A.R.T. for Singapore: Housing, Equitable Healthcare, Assured Prosperity, Resilient Economy, and Transparency.", recommendations: ["Rethink society's goals.", "Treat every citizen as first-class.", "Focus on shared prosperity and dignity."] },
+                        { name: "Collective Prosperity", focus: "Rising Cost of Living and Widening Inequality... benefits not trickling down.", recommendations: ["Shift to Wellbeing Economy (fair wages, job security, Citizens First Hiring).", "Support local businesses (procurement, rent, grants).", "Safeguard Sustainability (climate, green spaces, recycling, emission limits)."] },
+                        { name: "Citizen’s Dividend", focus: "Rising Economic Insecurity... Need for a Reliable Income Floor.", recommendations: ["Champion Citizens Dividend (unconditional cash transfer, starting vulnerable -> universal)."] },
+                        { name: "Comprehensive Housing Reset", focus: "Lack of Long-Term Security, Rising Housing Costs, and Limited Housing Options.", recommendations: ["Champion SERS for all HDB.", "Ensure sustainable price appreciation (3-5% annually).", "Expand public rental, introduce Rent-to-Own.", "Prioritise Singaporean buyers (restrict new citizens/PRs on older flats)."] },
+                        { name: "Caring Healthcare", focus: "Unaffordable healthcare and widening inequality.", recommendations: ["Rebalance 3M (universal coverage first, Medifund primary).", "Expand MediShield Life (outpatient, primary, preventive, chronic, mental).", "Redesign MediSave (supplementary).", "Ensure affordability (cap out-of-pocket, fairer subsidies)."] },
+                        { name: "Civil Freedom", focus: "Suppressing free thought... Laws like POFMA, FICA, POHA used to stifle dissent.", recommendations: ["Ensure Freedom of Information (FOIA).", "Revise laws (POFMA, FICA, POHA) for public interest.", "Foster transparency and accountability."] },
+                    ]
+                },
+                {
+                    name: "SDP", slogan: "Thrive, not just survive", partyClass: "sdp", logo: "https://upload.wikimedia.org/wikipedia/en/0/0d/Logo_of_the_SDP.svg",
+                    children: [
+                        { name: "Cost of Living", focus: "Lowering the cost of living... providing a fairer economic environment.", recommendations: ["Cut ministerial salaries.", "Raise income tax (top 1%).", "Scrap GST on essentials.", "Introduce minimum wage.", "Reduce healthcare costs.", "Reduce housing costs (NOM scheme).", "Reinstate estate duty."] },
+                        { name: "Economy", focus: "Reducing inequality, promoting entrepreneurship, and creating a people-centric economy.", recommendations: ["Minimum wage.", "Eliminate CPF Minimum Sum.", "Reduce reliance on foreign labour.", "Divest inefficient GLCs.", "Increase social spending.", "Transparency in reserves management.", "Genuine Progress Indicator (GPI).", "RESTART scheme for retrenched.", "Support SMEs."] },
+                        { name: "Education", focus: "Reforming education... more collaborative, less competitive.", recommendations: ["Abolish PSLE.", "Reduce class sizes.", "Promote critical thinking.", "Reduce socio-economic inequality effects.", "Nationalise preschool.", "Lower tertiary fees.", "Interest-free student loans.", "Broaden curricula."] },
+                        { name: "Population", focus: "Prioritising the hiring of Singaporeans first and the retrenching of them last.", recommendations: ["Talent Track Scheme (points for foreign PMETs).", "Reduce reliance on foreign labour.", "Oppose 10m population target."] },
+                        { name: "Climate Change", focus: "Addressing environmental challenges.", recommendations: ["Incentivise EVs.", "Expand renewable energy.", "Regulate population growth.", "Enforce Transboundary Haze Act.", "Upgrade Paris Agreement commitments.", "Reduce single-use packaging."] },
+                        { name: "Malay Community", focus: "A 10-point plan to uplift the Malay community and promote equality.", recommendations: ["Minimum wage.", "Nationalise preschool.", "Lower tertiary fees.", "Fund madrasahs.", "End racial discrimination in SAF.", "Abolish EIP.", "Fair employment practices.", "Reform self-help group funding."] },
+                        { name: "Healthcare", focus: "Healthcare which is universal.", recommendations: ["Simple national health insurance.", "Empower primary care."] },
+                        { name: "Housing", focus: "VERS for affordable housing.", recommendations: ["Implement VERS.", "Sustainable solution to lease decay.", "NOM scheme for young families."] },
+                        { name: "Governance and Political Reform", focus: "Social justice, economic fairness, and democratic governance; transparency and accountability.", recommendations: ["Cut ministerial pay.", "Independent salary commission.", "Full-time MPs.", "Cut town council costs.", "Transparent town councils.", "Quarterly Townhall Meetings.", "Elected reps on TC Board.", "Guarantee fundamental freedoms.", "Repeal Public Order Act.", "Liberalise media (NPPA).", "Free and fair elections.", "Abolish ISA."] },
+                        { name: "Workers' Rights", focus: "Protect jobs and empower Singaporeans.", recommendations: ["Prioritise Singaporeans.", "Minimum Wage Act.", "Support for mental health.", "Wage parity.", "RESTART retrenchment benefits.", "Allow free trade unions."] },
+                        { name: "Taxes", focus: "Taxes which are fair.", recommendations: ["Reduce GST.", "Eliminate GST on essentials.", "Wealthy pay fairly.", "Support SMEs.", "Vary GST rate.", "Reinstate estate duty."] }
+                    ]
+                },
+                {
+                    name: "WP", slogan: "Working for Singapore", partyClass: "wp", logo: "https://upload.wikimedia.org/wikipedia/en/3/34/Workers%27_Party_of_Singapore_logo.png",
+                    children: [
+                        { name: "Affordability and Cost of Living", focus: "Addressing cost of living concerns, including operating costs for businesses.", recommendations: ["Parliamentary Committee on Cost of Living.", "Explore alternative revenue (land sales, NIRC, wealth tax).", "Redundancy Insurance Scheme.", "Mandate Retrenchment Benefits.", "National Minimum Wage ($1,600).", "Clear BTO affordability metric (HPI ~3.0).", "Offer 70-year BTO leases.", "Universal HDB buy-back scheme.", "Clarify HDB Land Valuation.", "Reduce COE Volatility.", "National Transport Corporation (NTC)."] },
+                        { name: "Economic Growth and Opportunities", focus: "Prioritizing local talent, improving SME competitiveness, and strengthening retirement adequacy.", recommendations: ["Prioritize local hiring.", "Tie EPs to skills transfer.", "Increase higher education intake.", "Track/Address Chronic Underemployment.", "Build SME leadership.", "Help SMEs attract talent.", "Support SME green transition.", "Establish Exim Bank for SMEs.", "Reform CPF.", "Special Dividend from GIC for CPF."] },
+                        { name: "Inclusion and Equality", focus: "Giving everyone the best chance to flourish...", recommendations: ["Track Social Outcomes Beyond GDP.", "Set Official Poverty Line.", "Family Care Leave scheme.", "Enhance support for parents of disabled children.", "Research societal flourishing.", "Regulate Mental Health Professionals.", "Lower Voting Age to 18.", "Allow Singles BTO at 28.", "Reinstate Thaipusam holiday.", "Stamp Out Discrimination."] },
+                        { name: "Accountability and Democracy", focus: "Enhancing accountability and strengthening democratic institutions.", recommendations: ["Office of the Ombudsman.", "Parliamentary Select Committees per Ministry.", "Parliamentary Budget Office.", "Reform Presidential Council for Minority Rights.", "Enhance Ministerial Code of Conduct.", "Regulate Lobbying.", "Abolish GRC, NCMP, NMP (revert to SMCs).", "Ceremonial President, elected Senate.", "Abolish Mayor office.", "Freedom of Information Act.", "Safeguard institutional independence (CPIB, ELD).", "Judicial oversight (FICA, POFMA).", "Separate Public Prosecutor/Govt Legal Advisor."] },
+                        { name: "Security and Geopolitics", focus: "Strengthening external and internal resilience.", recommendations: ["Counter Grey Zone Tactics.", "Increase NS allowance ($1,600), rename 'salary', add CPF.", "Equal Opportunities in SAF.", "Increase internal supply chain resilience.", "Repeal ISA, replace with anti-terrorism law.", "Strengthen ASEAN.", "Support Myanmar's return to stability.", "Recognise State of Palestine.", "Singapore Agency for International Development (ODA)."] }
+                    ]
+                }
+            ]
+        };
+
+        // --- D3 Mindmap Implementation ---
+        const svgElement = document.getElementById('mindmap-svg');
+        const svg = d3.select(svgElement);
+        const svgContainer = document.getElementById('mindmap-container');
+        const detailsPanel = document.getElementById('details-panel');
+        const detailsContent = document.getElementById('details-content');
+        const toggleButton = document.getElementById('toggle-panel-btn');
+        const loadingDiv = d3.select("#loading");
+
+        // Get initial dimensions based on container size
+        let width = svgContainer.getBoundingClientRect().width;
+        let height = svgContainer.getBoundingClientRect().height;
+
+        const g = svg.append("g"); // Group for zoomable content
+
+        // Add zoom capabilities
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 3]) // Zoom range
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        // Function to calculate the bounding box of all nodes
+        function getNodesBoundingBox(nodes) {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            nodes.forEach(d => {
+                minX = Math.min(minX, d.y);
+                maxX = Math.max(maxX, d.y);
+                minY = Math.min(minY, d.x);
+                maxY = Math.max(maxY, d.x);
+            });
+            return { minX, maxX, minY, maxY };
+        }
+
+        // Function to apply zoom and center based on bounding box
+        function applyZoom(w, h, nodes) {
+            const { minX, maxX, minY, maxY } = getNodesBoundingBox(nodes);
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            // Reduce scale by 10% to add padding
+            const scale = Math.min(w / contentWidth, h / contentHeight, 2.5) * 0.9; // Ensure max zoom of 2.5
+
+            const initialTranslateX = (w - contentWidth * scale) / 2 - minX * scale;
+            const initialTranslateY = (h - contentHeight * scale) / 2 - minY * scale;
+            svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(initialTranslateX, initialTranslateY).scale(scale));
+        }
+
+        let root; // Will hold the hierarchical data
+        let i = 0; // Counter for node IDs
+        const logoSize = 30; // Define logo size
+
+        // Define the tree layout
+        // Use slightly larger dimensions and rely on zoom/pan for navigation
+        let treeLayout = d3.tree().size([height * 1.5, width * 1.5]); // Initial size
+
+        function update(source, duration = 750) {
+            // Assigns the x and y position for the nodes
+            const treeData = treeLayout(root);
+
+            // Compute the new tree layout.
+            const nodes = treeData.descendants();
+            const links = treeData.descendants().slice(1); // Exclude root node's self-link
+
+            // Normalize for fixed-depth. Horizontal layout.
+            nodes.forEach(d => {
+                d.y = d.depth * 150;
+            });
+
+            // ----- Nodes -----
+            const node = g.selectAll('g.node')
+                .data(nodes, d => d.id || (d.id = ++i));
+
+            // Enter any new nodes at the parent's previous position.
+            const nodeEnter = node.enter().append('g')
+                .attr('class', d => `node ${getNodeFillClass(d)} ${getNodeStrokeClass(d)}`)
+                .attr('transform', d => `translate(${source.y0 || source.y},${source.x0 || source.x})`)
+                .on('click', (event, d) => {
+                    // Don't toggle root node
+                    if (d.depth === 0) return;
+                    toggleChildren(d);
+                    update(d);
+                    displayDetails(d);
+                });
+
+            // Add Circle OR Image for the nodes based on depth
+            nodeEnter.each(function(d) {
+                const nodeGroup = d3.select(this);
+                if (d.depth === 1 && d.data.logo) { // Party node with logo
+                    nodeGroup.append('image')
+                        .attr('xlink:href', d.data.logo)
+                        .attr('width', logoSize)
+                        .attr('height', logoSize)
+                        .attr('x', -logoSize / 2) // Center the image
+                        .attr('y', -logoSize / 2) // Center the image
+                        .attr('class', 'party-logo')
+                         // Add error handling for images
+                        .on('error', function() {
+                             d3.select(this).attr('xlink:href', `https://placehold.co/${logoSize}x${logoSize}/cccccc/ffffff?text=Error`);
+                        });
+                } else if (d.depth > 0) { // Topic or other nodes (not root)
+                    nodeGroup.append('circle')
+                        .attr('r', 1e-6) // Start small
+                        .style("fill", d => d._children ? getNodeFillColor(d) : '#fff') // Fill if collapsed
+                        .style("stroke", d => getNodeStrokeColor(d));
+                }
+                // Don't add circle/image for root node (depth 0)
+            });
+
+
+            // Add labels for the nodes (excluding root)
+            nodeEnter.filter(d => d.depth > 0) // Don't add text for root
+                .append('text')
+                .attr("dy", ".35em")
+                // Adjust text position based on whether it's a party (logo) or topic (circle)
+                .attr("x", d => {
+                    if (d.depth === 1) { // Party node (with logo)
+                        return d.children || d._children ? -(logoSize / 2 + 5) : (logoSize / 2 + 5); // Position text further out from logo
+                    } else { // Topic node (with circle)
+                         return d.children || d._children ? -13 : 13; // Default position from circle
+                    }
+                })
+                .attr("text-anchor", d => d.children || d._children ? "end" : "start")
+                .text(d => d.data.name)
+                .style("fill-opacity", 1e-6); // Start transparent
+
+            // ----- Update existing nodes -----
+            const nodeUpdate = nodeEnter.merge(node);
+
+            // Transition nodes to their new position.
+            nodeUpdate.transition()
+                .duration(duration)
+                .attr('transform', d => `translate(${d.y},${d.x})`);
+
+            // Update the circle/image attributes and style
+            nodeUpdate.select('circle') // Update circles (if they exist)
+                .attr('r', 6) // Normal size
+                .style("fill", d => d._children ? getNodeFillColor(d) : '#fff')
+                .style("stroke", d => getNodeStrokeColor(d))
+                .attr('class', d => d._children ? 'collapsed' : 'expanded');
+
+             // Update image attributes (no visual change needed on update usually)
+             nodeUpdate.select('image'); // Select images (if they exist)
+
+            // Update the text attributes and style
+            nodeUpdate.select('text')
+                .style("fill-opacity", 1) .style("font-size", d => d.depth === 1 ? '28px' : (d.depth > 1 ? '20px' : null)); // Set font size for party nodes and child nodes
+
+            // ----- Remove exiting nodes -----
+            const nodeExit = node.exit().transition()
+                .duration(duration)
+                .attr('transform', d => `translate(${source.y},${source.x})`)
+                .remove();
+
+            // On exit reduce the node circles/images size to 0
+            nodeExit.select('circle').attr('r', 1e-6);
+            nodeExit.select('image').attr('width', 1e-6).attr('height', 1e-6);
+
+
+            // On exit reduce the opacity of text labels
+            nodeExit.select('text')
+                .style('fill-opacity', 1e-6);
+
+            // ----- Links -----
+            // Filter links to exclude those connected to the root
+            const visibleLinks = links.filter(d => d.depth > 1);
+            const link = g.selectAll('path.link')
+                .data(visibleLinks, d => d.id); // Match links to target node id
+
+            // Enter any new links at the parent's previous position.
+            const linkEnter = link.enter().insert('path', "g") // Insert behind nodes
+                .attr("class", "link")
+                .attr('d', d => {
+                    // Use parent's initial position if available, otherwise source's
+                    const o = { x: d.parent.x0 || source.x0 || source.x, y: d.parent.y0 || source.y0 || source.y };
+                    return diagonal(o, o); // Start link from parent's old position
+                });
+
+            // ----- Update existing links -----
+            const linkUpdate = linkEnter.merge(link);
+
+            // Transition links to their new position.
+            linkUpdate.transition()
+                .duration(duration)
+                .attr('d', d => diagonal(d, d.parent));
+
+            // ----- Remove exiting links -----
+            const linkExit = link.exit().transition()
+                .duration(duration)
+                .attr('d', d => {
+                     const o = { x: d.parent.x, y: d.parent.y }; // Collapse link to parent's new position
+                    return diagonal(o, o);
+                })
+                .remove();
+
+            // Store the old positions for transition.
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        // Creates a curved (diagonal) path from parent to the child nodes
+        function diagonal(s, d) {
+            // s = source node position {x, y}, d = target node position {x, y}
+             const path = `M ${d.y} ${d.x}
+                    C ${(s.y + d.y) / 2} ${d.x},
+                      ${(s.y + d.y) / 2} ${s.x},
+                      ${s.y} ${s.x}`;
+            // Corrected path: M target C control1 control2 source
+            // This draws from target back to source, which visually looks like source to target
+             const pathCorrect = `M ${s.y} ${s.x}
+                    C ${(s.y + d.y) / 2} ${s.x},
+                      ${(s.y + d.y) / 2} ${d.x},
+                      ${d.y} ${d.x}`;
+            return pathCorrect;
+        }
+
+        // Toggle children on click.
+        function toggleChildren(d) {
+            // Check if the node has children or collapsed children
+             if (!d.children && !d._children) {
+                return; // Do nothing for leaf nodes
+            }
+            if (d.children) { // If expanded, collapse
+                d._children = d.children;
+                d.children = null;
+            } else { // If collapsed, expand
+                d.children = d._children;
+                d._children = null;
+            }
+        }
+
+        // Function to get node fill color based on party or default
+        function getNodeFillColor(d) {
+            // Use parent's color for topic nodes if they are collapsed (_children)
+            if (d.depth > 1 && d.parent && d.parent.data.partyClass) return d3.select(`.fill-${d.parent.data.partyClass}`).style('fill');
+            // Use party color for party nodes if they are collapsed (_children)
+            if (d.depth === 1 && d.data.partyClass) return d3.select(`.fill-${d.data.partyClass}`).style('fill');
+            return d3.select('.fill-default').style('fill'); // Default color
+        }
+        // Function to get node stroke color based on party or default
+        function getNodeStrokeColor(d) {
+            // Use parent's color for topic node strokes
+            if (d.depth > 1 && d.parent && d.parent.data.partyClass) return d3.select(`.stroke-${d.parent.data.partyClass}`).style('stroke');
+             // Use party color for party node strokes (though image replaces circle)
+            if (d.depth === 1 && d.data.partyClass) return d3.select(`.stroke-${d.data.partyClass}`).style('stroke');
+           return d3.select('.stroke-default').style('stroke'); // Default color
+        }
+         // Function to get node fill CSS class based on party or default (for inheritance)
+        function getNodeFillClass(d) {
+            if (d.depth === 1 && d.data.partyClass) return `fill-${d.data.partyClass}`;
+            if (d.depth > 0 && d.parent && d.parent.data.partyClass) return `fill-${d.parent.data.partyClass}`;
+            return 'fill-default';
+        }
+        // Function to get node stroke CSS class based on party or default (for inheritance)
+        function getNodeStrokeClass(d) {
+             if (d.depth === 1 && d.data.partyClass) return `stroke-${d.data.partyClass}`;
+             if (d.depth > 0 && d.parent && d.parent.data.partyClass) return `stroke-${d.parent.data.partyClass}`;
+            return 'stroke-default';
+        }
+
+        // Display details in the side panel
+        function displayDetails(d) {
+            let content = '';
+            if (d.depth === 0) { // Root node
+                content = `<p class="text-gray-600">Overview of all party manifestos. Click a party logo to expand.</p>`;
+            } else if (d.depth === 1) { // Party node
+                const partyColorClass = d.data.partyClass ? `text-${d.data.partyClass}-600` : 'text-gray-700';
+                content = `
+                    <div class="flex items-center mb-2">
+                        ${d.data.logo ? `<img src="${d.data.logo}" alt="${d.data.name} Logo" class="w-8 h-8 mr-2 rounded-full">` : ''}
+                        <h3 class="text-lg font-semibold ${partyColorClass}">${d.data.name}</h3>
+                    </div>
+                    <p class="text-sm italic text-gray-500 mb-3">Slogan: ${d.data.slogan || 'N/A'}</p>
+                    <p class="text-gray-600">Contains ${d.children ? d.children.length : (d._children ? d._children.length : 0)} main topics. Expand the node to see them.</p>
+                `;
+            } else if (d.depth === 2) { // Topic node
+                 const partyColorClass = d.parent.data.partyClass ? `text-${d.parent.data.partyClass}-600` : 'text-gray-700';
+                 content = `
+                    <h3 class="text-lg font-semibold mb-1 ${partyColorClass}">${d.data.name}</h3>
+                    <p class="text-sm text-gray-500 mb-2">(Topic under ${d.parent.data.name})</p>
+                    ${d.data.focus ? `<div class="mb-3"><strong class="font-medium text-gray-700">Focus:</strong><p class="text-gray-600 text-sm">${d.data.focus}</p></div>` : ''}
+                    ${d.data.recommendations && d.data.recommendations.length > 0 ?
+                        `<div>
+                            <strong class="font-medium text-gray-700">Key Recommendations:</strong>
+                            <ul class="list-disc list-inside text-sm text-gray-600 mt-1 space-y-1">
+                                ${d.data.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                            </ul>
+                         </div>`
+                        : '<p class="text-sm text-gray-500">No specific recommendations listed for this node.</p>'
+                    }
+                `;
+            } else {
+                 content = `<p class="text-gray-600">${d.data.name}</p>`; // Fallback for deeper nodes if any
+            }
+            detailsContent.innerHTML = content; // Use innerHTML as content includes HTML tags
+        }
+
+        // Function to update layout size and recenter view
+        function updateLayoutAndView() {
+            // Get the current width of the SVG container
+            width = svgContainer.getBoundingClientRect().width;
+            height = svgContainer.getBoundingClientRect().height; // Height remains constant
+
+            // Update tree layout size
+            treeLayout.size([height * 1.5, width * 1.5]);
+
+            // Recenter the view smoothly
+            applyZoom(width, height, d3.zoomTransform(svgElement).k); // Keep current scale
+        }
+
+
+        // --- Initial Setup ---
+        try {
+            // Create the hierarchy
+            root = d3.hierarchy(manifestoData, d => d.children);
+            root.x0 = height / 2; // Starting position (center vertically)
+            root.y0 = 0; // Starting position (left edge)
+
+            // Collapse all nodes beyond the root initially
+            if (root.children) {
+                root.children.forEach(partyNode => {
+                     if (partyNode.children) {
+                        partyNode._children = partyNode.children; // Collapse topics under party
+                        partyNode.children = null;
+                    }
+                });
+                 // Keep party nodes visible initially by not setting root._children
+            }
+
+
+            // Hide loading message and draw the initial tree
+            loadingDiv.style("display", "none");
+            update(root); // Draw the tree
+            applyZoom(width, height, root.descendants()); // Apply initial zoom and centering
+            displayDetails(root); // Show initial details for the root
+
+        } catch (error) {
+             loadingDiv.html("Error loading mindmap data."); // Use html() for safety
+             console.error("Error initializing mindmap:", error);
+        }
+
+        // --- Event Listeners ---
+
+        // Toggle Panel Button
+        toggleButton.addEventListener('click', () => {
+            const isHidden = detailsPanel.classList.toggle('hidden');
+            toggleButton.innerHTML = isHidden ? '&gt;' : '&lt;'; // Change button arrow
+            toggleButton.setAttribute('title', isHidden ? 'Show Details Panel' : 'Hide Details Panel');
+
+            // Use setTimeout to allow CSS transition to start before recalculating width
+            setTimeout(updateLayoutAndView, 50); // Small delay
+        });
+
+
+        // Resize listener
+        window.addEventListener('resize', () => {
+             // Update layout and view on window resize
+             updateLayoutAndView();
+        });
+
+    </script>
+
+</body>
+</html>
